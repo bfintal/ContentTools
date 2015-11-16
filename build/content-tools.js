@@ -1339,13 +1339,15 @@
     };
 
     Range.prototype.select = function(element) {
-      var docRange, endNode, endOffset, startNode, startOffset, _ref, _ref1;
+      var docRange, endNode, endNodeLen, endOffset, startNode, startNodeLen, startOffset, _ref, _ref1;
       ContentSelect.Range.unselectAll();
       docRange = document.createRange();
       _ref = _getChildNodeAndOffset(element, this._from), startNode = _ref[0], startOffset = _ref[1];
       _ref1 = _getChildNodeAndOffset(element, this._to), endNode = _ref1[0], endOffset = _ref1[1];
-      docRange.setStart(startNode, startOffset);
-      docRange.setEnd(endNode, endOffset);
+      startNodeLen = startNode.length || 0;
+      endNodeLen = endNode.length || 0;
+      docRange.setStart(startNode, Math.min(startOffset, startNodeLen));
+      docRange.setEnd(endNode, Math.min(endOffset, endNodeLen));
       return window.getSelection().addRange(docRange);
     };
 
@@ -3628,13 +3630,16 @@
     };
 
     Image.prototype.mount = function() {
-      var style;
+      var classes, style;
       this._domElement = document.createElement('div');
+      classes = '';
       if (this.a && this.a['class']) {
-        this._domElement.setAttribute('class', this.a['class']);
-      } else if (this._attributes['class']) {
-        this._domElement.setAttribute('class', this._attributes['class']);
+        classes += ' ' + this.a['class'];
       }
+      if (this._attributes['class']) {
+        classes += ' ' + this._attributes['class'];
+      }
+      this._domElement.setAttribute('class', classes);
       style = this._attributes['style'] ? this._attributes['style'] : '';
       style += "background-image:url(" + this._attributes['src'] + ");";
       if (this._attributes['width']) {
@@ -6360,8 +6365,8 @@
       this._attributeUIs = [];
       this._focusedAttributeUI = null;
       this._styleUIs = [];
-      this._supportsCoding = element.content;
-      if ((_ref = element.constructor.name) === 'ListItem' || _ref === 'TableCell') {
+      this._supportsCoding = this.element.content;
+      if ((_ref = this.element.constructor.name) === 'ListItem' || _ref === 'TableCell') {
         this._supportsCoding = true;
       }
     }
@@ -7972,17 +7977,39 @@
       dialog = new ContentTools.LinkDialog(this.getHref(element, selection));
       dialog.position([rect.left + (rect.width / 2) + window.scrollX, rect.top + (rect.height / 2) + window.scrollY]);
       dialog.bind('save', function(href) {
-        var a;
+        var a, alignmentClassNames, className, linkClasses, _i, _j, _len, _len1;
         dialog.unbind('save');
         applied = true;
         if (element.constructor.name === 'Image') {
+          alignmentClassNames = ['align-center', 'align-left', 'align-right'];
           if (href) {
             element.a = {
               href: href
             };
+            for (_i = 0, _len = alignmentClassNames.length; _i < _len; _i++) {
+              className = alignmentClassNames[_i];
+              if (element.hasCSSClass(className)) {
+                element.removeCSSClass(className);
+                element.a['class'] = className;
+                break;
+              }
+            }
           } else {
+            linkClasses = [];
+            if (element.a['class']) {
+              linkClasses = element.a['class'].split(' ');
+            }
+            for (_j = 0, _len1 = alignmentClassNames.length; _j < _len1; _j++) {
+              className = alignmentClassNames[_j];
+              if (linkClasses.indexOf(className) > -1) {
+                element.addCSSClass(className);
+                break;
+              }
+            }
             element.a = null;
           }
+          element.unmount();
+          element.mount();
         } else {
           element.content = element.content.unformat(from, to, 'a');
           if (href) {
